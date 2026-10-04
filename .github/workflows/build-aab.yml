@@ -1,5 +1,5 @@
 
-name: Zameen Hisab Android Build
+name: Zameen Hisab 
 
 on:
   workflow_dispatch:
@@ -8,23 +8,23 @@ on:
       - main
 
 jobs:
-  build-android:
-    name: Build AAB
+  android:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Project
+      - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
 
       - name: Install Dependencies
         run: pnpm install --no-frozen-lockfile
@@ -35,23 +35,23 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Generate Android Project
-        working-directory: artifacts/zameen-calculator-balochistan
-        run: pnpm exec expo prebuild --platform android --non-interactive
+      - name: Generate Android Native Project
+        run: pnpm --filter @workspace/zameen-calculator-balochistan exec expo prebuild --platform android --clean --non-interactive
 
-      - name: Build APK and AAB
+      - name: Build APK
         working-directory: artifacts/zameen-calculator-balochistan/android
-        run: |
-          chmod +x gradlew
-          ./gradlew assembleRelease bundleRelease
+        run: ./gradlew assembleRelease
+
+      - name: Build AAB
+        working-directory: artifacts/zameen-calculator-balochistan/android
+        run: ./gradlew bundleRelease
 
       - name: Upload APK and AAB
         uses: actions/upload-artifact@v4
         with:
-          name: Zameen-Hisab-Android
+          name: Zameen-Hisab-APK-AAB
           path: |
             artifacts/zameen-calculator-balochistan/android/app/build/outputs/apk/release/*.apk
             artifacts/zameen-calculator-balochistan/android/app/build/outputs/bundle/release/*.aab
           if-no-files-found: error
           retention-days: 14
-          
