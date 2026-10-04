@@ -5,13 +5,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Unzip project
+      - name: Prepare project
         run: |
-          rm -rf app_build
-          unzip -o Zameen-Hisab.zip -d app_build
-          mv app_build/*/*. 2>/dev/null || true
-          mv app_build/*. 2>/dev/null || true
           ls -la
+          if [ -f "Zameen-Hisab.zip" ]; then
+            rm -rf temp_app
+            unzip -o Zameen-Hisab.zip -d temp_app
+            cp -r temp_app/*/*. 2>/dev/null || true
+            cp -r temp_app/*. 2>/dev/null || true
+            cp -r temp_app/*/.. 2>/dev/null || true
+          fi
+          ls -la
+          cat package.json | head -20
       - uses: actions/setup-node@v4
         with:
           node-version: 18
@@ -19,12 +24,9 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
-      - name: Install deps
-        run: npm install
-      - name: Prebuild android
-        run: npx expo prebuild --platform android --non-interactive || true
-      - name: Make AAB
-        run: cd android && chmod +x gradlew &&./gradlew bundleRelease
+      - run: npm install
+      - run: npx expo prebuild --platform android --non-interactive --clean || npx expo prebuild --platform android --non-interactive
+      - run: cd android && chmod +x gradlew &&./gradlew bundleRelease
       - uses: actions/upload-artifact@v4
         with:
           name: Zameen-Hisab-AAB
