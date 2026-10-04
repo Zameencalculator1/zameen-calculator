@@ -1,5 +1,5 @@
 
-name: Zameen Hisab 
+name: Zameen Hisab APK AAB
 
 on:
   workflow_dispatch:
@@ -9,24 +9,24 @@ on:
 
 jobs:
   android:
+    name: Build Android App
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout Project
         uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 10
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - name: Install Dependencies
+      - name: Install Project Dependencies
         run: pnpm install --no-frozen-lockfile
 
       - name: Setup Java
@@ -35,12 +35,14 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Generate Android Native Project
-        run: pnpm --filter @workspace/zameen-calculator-balochistan exec expo prebuild --platform android --clean --non-interactive
+      - name: Generate Android Project
+        run: pnpm --filter @workspace/zameen-calculator-balochistan exec expo prebuild --platform android --non-interactive
 
       - name: Build APK
         working-directory: artifacts/zameen-calculator-balochistan/android
-        run: ./gradlew assembleRelease
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease
 
       - name: Build AAB
         working-directory: artifacts/zameen-calculator-balochistan/android
@@ -49,7 +51,7 @@ jobs:
       - name: Upload APK and AAB
         uses: actions/upload-artifact@v4
         with:
-          name: Zameen-Hisab-APK-AAB
+          name: Zameen-Calculator
           path: |
             artifacts/zameen-calculator-balochistan/android/app/build/outputs/apk/release/*.apk
             artifacts/zameen-calculator-balochistan/android/app/build/outputs/bundle/release/*.aab
