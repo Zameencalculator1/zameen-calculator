@@ -1,0 +1,29 @@
+name: Build AAB
+on: [push]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unzip
+        run: |
+          unzip -o Zameen-Hisab.zip -d t
+          mv t/*/*. 2>/dev/null || mv t/*. 2>/dev/null || true
+          ls -la
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      - name: Install
+        run: npm install || yarn || true
+      - name: Prebuild
+        run: npx expo prebuild --platform android --non-interactive || true
+      - name: Build
+        run: cd android && chmod +x gradlew &&./gradlew bundleRelease
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-aab
+          path: android/app/build/outputs/bundle/release/*.aab
