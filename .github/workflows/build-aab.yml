@@ -1,4 +1,4 @@
-name: Build AAB
+name: Build Zameen Hisab AAB
 
 on:
   push:
@@ -8,18 +8,17 @@ on:
 
 jobs:
   build:
-    name: Build Android App Bundle
+    name: Build Android AAB
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repository
+      - name: Checkout Code
         uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
-          cache: npm
+          node-version: 20
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -27,49 +26,53 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Extract Project ZIP
+      - name: Extract Project
+        shell: bash
         run: |
+          set -e
+
           if [ -f "Zameen-Hisab.zip" ]; then
-            unzip -o Zameen-Hisab.zip -d project
+            mkdir -p project
+            unzip -oq Zameen-Hisab.zip -d project
           fi
 
-          if [ -f "project/package.json" ]; then
-            cp -a project/. .
-          fi
+          if [ -f "package.json" ]; then
+            echo "PROJECT_DIR=." >> "$GITHUB_ENV"
+          else
+            PACKAGE=$(find project -name package.json -not -path '*/node_modules/*' -print -quit)
 
-          if [ ! -f "package.json" ]; then
-            for d in */; do
-              if [ -f "${d}package.json" ]; then
-                cp -a "$d"/. .
-                break
-              fi
-            done
-          fi
+            if [ -z "$PACKAGE" ]; then
+              echo "ERROR: package.json not found"
+              find . -maxdepth 4 -type f
+              exit 1
+            fi
 
-          if [ ! -f "package.json" ]; then
-            echo "ERROR: package.json not found!"
-            exit 1
+            echo "PROJECT_DIR=$(dirname "$PACKAGE")" >> "$GITHUB_ENV"
           fi
-
-          echo "Project files:"
-          ls -la
 
       - name: Install Dependencies
-        run: npm install
+        run: npm install --legacy-peer-deps
+        working-directory: ${{ env.PROJECT_DIR }}
 
-      - name: Expo Prebuild Android
+      - name: Check Expo
+        run: npx expo --version
+        working-directory: ${{ env.PROJECT_DIR }}
+
+      - name: Generate Android
         run: npx expo prebuild --platform android --clean --non-interactive
+        working-directory: ${{ env.PROJECT_DIR }}
 
-      - name: Build Release AAB
+      - name: Build AAB
         run: |
+          chmod +x android/gradlew
           cd android
-          chmod +x gradlew
           ./gradlew bundleRelease --no-daemon
+        working-directory: ${{ env.PROJECT_DIR }}
 
-      - name: Upload AAB Artifact
+      - name: Upload AAB
         uses: actions/upload-artifact@v4
         with:
           name: Zameen-Hisab-AAB
-          path: android/app/build/outputs/bundle/release/*.aab
+          path: ${{ env.PROJECT_DIR }}/android/app/build/outputs/bundle/release/*.aab
           if-no-files-found: error
           retention-days: 14
