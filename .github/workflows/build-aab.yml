@@ -1,30 +1,32 @@
-
-name: Zameen Hisab APK AAB
-
-on:
-  workflow_dispatch:
-  push:
-    branches:
-      - main
-
+name: Build Android App
+on: [push]
 jobs:
-  android:
-    name: Build Android App
+  build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout Project
         uses: actions/checkout@v4
 
+      - name: Unzip project
+        run: |
+          unzip -o Zameen-Hisab.zip
+          if [! -f package.json ]; then
+            for d in */; do
+              if [ -f "$d/package.json" ]; then
+                cp -r "$d"/*.
+                break
+              fi
+            done
+          fi
+          ls -la
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 18
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 10
 
       - name: Install Project Dependencies
         run: pnpm install --no-frozen-lockfile
@@ -36,24 +38,23 @@ jobs:
           java-version: 17
 
       - name: Generate Android Project
-        run: pnpm --filter @workspace/zameen-calculator-balochistan exec expo prebuild --platform android --non-interactive
+        run: npx expo prebuild --platform android --clean --non-interactive
 
       - name: Build APK
-        working-directory: artifacts/zameen-calculator-balochistan/android
         run: |
+          cd android
           chmod +x gradlew
-          ./gradlew assembleRelease
+         ./gradlew assembleRelease
 
       - name: Build AAB
-        working-directory: artifacts/zameen-calculator-balochistan/android
-        run: ./gradlew bundleRelease
+        run: |
+          cd android
+         ./gradlew bundleRelease
 
       - name: Upload APK and AAB
         uses: actions/upload-artifact@v4
         with:
-          name: Zameen-Calculator
+          name: Zameen-Hisab-APK-AAB
           path: |
-            artifacts/zameen-calculator-balochistan/android/app/build/outputs/apk/release/*.apk
-            artifacts/zameen-calculator-balochistan/android/app/build/outputs/bundle/release/*.aab
-          if-no-files-found: error
-          retention-days: 14
+            android/app/build/outputs/apk/release/*.apk
+            android/app/build/outputs/bundle/release/*.aab
