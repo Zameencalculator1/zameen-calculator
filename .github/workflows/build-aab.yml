@@ -1,24 +1,33 @@
-name: Build Zameen Hisab AAB
+
+name: Zameen Hisab Android Build
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
-  workflow_dispatch:
 
 jobs:
-  build:
-    name: Build Android AAB
+  build-android:
+    name: Build APK and AAB
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Code
+      - name: Checkout Project
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install Dependencies
+        run: pnpm install --no-frozen-lockfile
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -26,73 +35,23 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Enable pnpm
+      - name: Generate Android Project
+        working-directory: artifacts/zameen-calculator-balochistan
+        run: pnpm exec expo prebuild --platform android --non-interactive
+
+      - name: Build APK and AAB
+        working-directory: artifacts/zameen-calculator-balochistan/android
         run: |
-          corepack enable
-          corepack prepare pnpm@9 --activate
-          pnpm --version
+          chmod +x gradlew
+          ./gradlew assembleRelease bundleRelease
 
-      - name: Extract and Detect Project
-        shell: bash
-        run: |
-          set -e
-
-          if [ -f "Zameen-Hisab.zip" ]; then
-            mkdir -p project
-            unzip -oq Zameen-Hisab.zip -d project
-          fi
-
-          if [ -f "package.json" ]; then
-            ROOT="."
-          else
-            PACKAGE=$(find project -name package.json \
-              -not -path '*/node_modules/*' \
-              -not -path '*/.expo/*' \
-              -print -quit)
-
-            if [ -z "$PACKAGE" ]; then
-              echo "ERROR: package.json not found"
-              exit 1
-            fi
-
-            ROOT=$(dirname "$PACKAGE")
-          fi
-
-          WORKSPACE=$(find "$ROOT" -name pnpm-workspace.yaml \
-            -not -path '*/node_modules/*' -print -quit)
-
-          if [ -n "$WORKSPACE" ]; then
-            ROOT=$(dirname "$WORKSPACE")
-          fi
-
-          echo "PROJECT_DIR=$ROOT" >> "$GITHUB_ENV"
-
-          echo "Project directory: $ROOT"
-          ls -la "$ROOT"
-
-      - name: Install Dependencies
-        run: pnpm install --no-frozen-lockfile
-        working-directory: ${{ env.PROJECT_DIR }}
-
-      - name: Check Expo
-        run: pnpm exec expo --version
-        working-directory: ${{ env.PROJECT_DIR }}
-
-      - name: Generate Android
-        run: pnpm exec expo prebuild --platform android --clean --non-interactive
-        working-directory: ${{ env.PROJECT_DIR }}
-
-      - name: Build AAB
-        run: |
-          chmod +x android/gradlew
-          cd android
-          ./gradlew bundleRelease --no-daemon
-        working-directory: ${{ env.PROJECT_DIR }}
-
-      - name: Upload AAB
+      - name: Upload APK and AAB
         uses: actions/upload-artifact@v4
         with:
-          name: Zameen-Hisab-AAB
-          path: ${{ env.PROJECT_DIR }}/android/app/build/outputs/bundle/release/*.aab
+          name: Zameen-Hisab-Android
+          path: |
+            artifacts/zameen-calculator-balochistan/android/app/build/outputs/apk/release/*.apk
+            artifacts/zameen-calculator-balochistan/android/app/build/outputs/bundle/release/*.aab
           if-no-files-found: error
           retention-days: 14
+          
