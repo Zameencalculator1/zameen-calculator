@@ -26,7 +26,13 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Extract Project
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@9 --activate
+          pnpm --version
+
+      - name: Extract and Detect Project
         shell: bash
         run: |
           set -e
@@ -37,29 +43,43 @@ jobs:
           fi
 
           if [ -f "package.json" ]; then
-            echo "PROJECT_DIR=." >> "$GITHUB_ENV"
+            ROOT="."
           else
-            PACKAGE=$(find project -name package.json -not -path '*/node_modules/*' -print -quit)
+            PACKAGE=$(find project -name package.json \
+              -not -path '*/node_modules/*' \
+              -not -path '*/.expo/*' \
+              -print -quit)
 
             if [ -z "$PACKAGE" ]; then
               echo "ERROR: package.json not found"
-              find . -maxdepth 4 -type f
               exit 1
             fi
 
-            echo "PROJECT_DIR=$(dirname "$PACKAGE")" >> "$GITHUB_ENV"
+            ROOT=$(dirname "$PACKAGE")
           fi
 
+          WORKSPACE=$(find "$ROOT" -name pnpm-workspace.yaml \
+            -not -path '*/node_modules/*' -print -quit)
+
+          if [ -n "$WORKSPACE" ]; then
+            ROOT=$(dirname "$WORKSPACE")
+          fi
+
+          echo "PROJECT_DIR=$ROOT" >> "$GITHUB_ENV"
+
+          echo "Project directory: $ROOT"
+          ls -la "$ROOT"
+
       - name: Install Dependencies
-        run: npm install --legacy-peer-deps
+        run: pnpm install --no-frozen-lockfile
         working-directory: ${{ env.PROJECT_DIR }}
 
       - name: Check Expo
-        run: npx expo --version
+        run: pnpm exec expo --version
         working-directory: ${{ env.PROJECT_DIR }}
 
       - name: Generate Android
-        run: npx expo prebuild --platform android --clean --non-interactive
+        run: pnpm exec expo prebuild --platform android --clean --non-interactive
         working-directory: ${{ env.PROJECT_DIR }}
 
       - name: Build AAB
